@@ -35,10 +35,15 @@ alter table public.tournament_pairings
 comment on column public.tournament_pairings.forfeit_side is
   'Which side gave the game up: white or black. Null when the game was played.';
 
--- The standings view counts games by their score, so a forfeit is already
--- counted as a win or a loss. The view is rebuilt here so the forfeit count
--- is available to the reports as well.
-create or replace view public.tournament_standings
+-- The standings view is rebuilt here so the live database and a fresh
+-- install hold exactly the same view.
+--
+-- The view is dropped and made again rather than replaced, because a view
+-- cannot lose a column when it is replaced, and the columns of this view
+-- must stay exactly as migration 0004 left them.
+drop view if exists public.tournament_standings;
+
+create view public.tournament_standings
 with (security_invoker = true)
 as
 select
@@ -57,7 +62,6 @@ select
   count(pg.id) filter (where pg.result = '1-0' and pg.black_registration_id = tp.id) as losses,
   count(pg.id) filter (where pg.result = '0-1' and pg.white_registration_id = tp.id) as losses_as_white,
   count(pg.id) filter (where pg.is_bye) as byes,
-  count(pg.id) filter (where pg.forfeit_side is not null) as forfeits,
   coalesce(sum(
     case
       when pg.result = '1-0' and pg.white_registration_id = tp.id then 1.0
